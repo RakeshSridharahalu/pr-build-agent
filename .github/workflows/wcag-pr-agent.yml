@@ -1,38 +1,82 @@
-name: WCAG PR Accessibility Checks
+name: WCAG PR Build Agent
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  accessibility-tests:
+  accessibility-scan:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
     steps:
-      - name: Checkout repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup NodeJS
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
+          cache: npm
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
+      # -------------------------------
+      # Run Jest Accessibility Tests
+      # -------------------------------
+      - name: Run Jest Accessibility Test
+        id: jest
+        run: |
+          npm run test:a11y || echo "jest_failed=true" >> $GITHUB_ENV
 
-      - name: Run Jest Axe Tests
-        run: npm run test:a11y
+      - name: Annotate Jest Violations
+        if: env.jest_failed == 'true'
+        run: |
+          if [ -f jest-a11y-report.json ]; then
+            jq -r '.violations[] | "::error title=Jest Axe - \(.id)::Impact: \(.impact), Help: \(.help) | Element: \(.nodes[0].html // "N/A")"' jest-a11y-report.json
+          else
+            echo "::warning ::No Jest report found"
+          fi
 
-      - name: Run Playwright Axe Tests
-        run: npm run test:e2e
+      # -------------------------------
+      # Run Playwright Accessibility Tests
+      # -------------------------------
+      - name: Run Playwright Accessibility Test
+        id: playwright
+        run: |
+          npm run dev & npx wait-on http://localhost:5173
+          npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
 
-      - name: Upload Accessibility Report
+      - name: Annotate Playwright Violations
+        if: env.playwright_failed == 'true'
+        run: |
+          if [ -f playwright-accessibility-report.json ]; then
+            jq -r '.violations[] | "::error title=Playwright Axe - \(.id)::Impact: \(.impact), Help: \(.help) | Element: \(.nodes[0].html // "N/A")"' playwright-accessibility-report.json
+          else
+            echo "::warning ::No Playwright report found"
+          fi
+
+      # -------------------------------
+      # Upload JSON artifacts
+      # -------------------------------
+      - name: Upload Accessibility Reports
         uses: actions/upload-artifact@v4
         with:
-          name: accessibility-report
+          name: wcag-accessibility-reports
           path: |
             jest-a11y-report.json
             playwright-accessibility-report.json
+
+      # -------------------------------
+      # BLOCK PR if any violations exist
+      # -------------------------------
+      - name: Fail if any violations exist
+        if: env.jest_failed == 'true' || env.playwright_failed == 'true'
+        run: |
+          echo "❌ Accessibility violations found — blocking PR."
+          exit 1
