@@ -23,7 +23,9 @@ jobs:
           cache: npm
 
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm install wait-on --save-dev
 
       # -------------------------------
       # Run Jest Accessibility Tests
@@ -36,15 +38,11 @@ jobs:
       - name: Annotate Jest Violations
         if: env.jest_failed == 'true'
         run: |
-          if [ -f jest-a11y-report.json ]; then
-            echo "🔍 Parsing Jest Accessibility Violations..."
-            jq -r '
-              (.violations // [])[] |
-              "::error title=Jest Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
-            ' jest-a11y-report.json
-          else
-            echo "::warning ::No Jest report found."
-          fi
+          echo "🔍 Parsing Jest Accessibility Violations..."
+          jq -r '
+            (.violations // [])[] |
+            "::error title=Jest Axe: \(.id)::Impact: \(.impact // "unknown") — \(.help // "N/A") | Affected: \(.nodes[0].html // "N/A")"
+          ' jest-a11y-report.json
 
       # -------------------------------
       # Run Playwright Accessibility Tests
@@ -52,24 +50,26 @@ jobs:
       - name: Run Playwright Accessibility Test
         id: playwright
         run: |
-          npm run dev & npx wait-on http://localhost:5173
+          npm run dev & wait-on http://localhost:5173
           npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
 
       - name: Annotate Playwright Violations
         if: env.playwright_failed == 'true'
         run: |
-          if [ -f playwright-accessibility-report.json ]; then
-            echo "🔍 Parsing Playwright Accessibility Violations..."
-            jq -r '
-              (.violations // [])[] |
-              "::error title=Playwright Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
-            ' playwright-accessibility-report.json
-          else
-            echo "::warning ::No Playwright report found."
-          fi
+          echo "🔍 Parsing Playwright Accessibility Violations..."
+          jq -r '
+            (.violations // [])[] |
+            "::error title=Playwright Axe: \(.id)::Impact: \(.impact // "unknown") — \(.help // "N/A") | Affected: \(.nodes[0].html // "N/A")"
+          ' playwright-accessibility-report.json
 
       # -------------------------------
-      # Upload JSON artifacts
+      # Generate HTML Reports
+      # -------------------------------
+      - name: Generate HTML Reports
+        run: npm run generate:report
+
+      # -------------------------------
+      # Upload JSON + HTML artifacts
       # -------------------------------
       - name: Upload Accessibility Reports
         uses: actions/upload-artifact@v4
