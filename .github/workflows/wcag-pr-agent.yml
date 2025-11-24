@@ -1,104 +1,38 @@
-name: ♿ WCAG Accessibility Report
+name: WCAG PR Accessibility Checks
 
 on:
   pull_request:
+    branches: [ "main" ]
 
 jobs:
   accessibility-tests:
     runs-on: ubuntu-latest
 
-    permissions:
-      pull-requests: write   # required for commenting
-      contents: read
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      # Run Jest Accessibility test, capture exit but continue
-      - name: Run Jest Accessibility Test
-        id: jest
-        run: |
-          npm run test:a11y || echo "jest_failed=1" >> $GITHUB_ENV
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
-      # Run Playwright Accessibility test, capture exit but continue
-      - name: Run Playwright Accessibility Test
-        id: playwright
-        run: |
-          npm run test:e2e || echo "playwright_failed=1" >> $GITHUB_ENV
+      - name: Run Jest Axe Tests
+        run: npm run test:a11y
 
-      # Generate HTML reports
-      - name: Generate HTML Reports
-        run: |
-          mkdir -p reports
-          node << 'EOF'
-          const fs = require('fs');
+      - name: Run Playwright Axe Tests
+        run: npm run test:e2e
 
-          if (fs.existsSync('jest-a11y-report.json')) {
-            const data = JSON.parse(fs.readFileSync('jest-a11y-report.json', 'utf8'));
-            const violations = data.violations || [];
-            fs.writeFileSync('reports/jest-summary.json', JSON.stringify(violations, null, 2));
-            console.log(`📁 Jest Summary Created (${violations.length} issues)`);
-          } else {
-            console.log("⚠ Jest report not found — skipping summary generation.");
-          }
-
-          if (fs.existsSync('playwright-accessibility-report.json')) {
-            const pData = JSON.parse(fs.readFileSync('playwright-accessibility-report.json', 'utf8'));
-            fs.writeFileSync('reports/playwright-summary.json', JSON.stringify(pData, null, 2));
-            console.log("📁 Playwright Summary Created");
-          } else {
-            console.log("⚠ Playwright report not found — skipping summary generation.");
-          }
-          EOF
-
-
-      # Upload artifacts
-      - name: Upload Accessibility Reports
+      - name: Upload Accessibility Report
         uses: actions/upload-artifact@v4
         with:
-          name: accessibility-reports
+          name: accessibility-report
           path: |
             jest-a11y-report.json
             playwright-accessibility-report.json
-            reports/
-
-      # Annotate violations inside Checks Tab
-      - - name: Publish Jest Violations to Checks
-          if: env.jest_failed == '1'
-          run: |
-            if jq -e '.violations | length > 0' jest-a11y-report.json > /dev/null; then
-              jq -r '.violations[] | "::error title=\(.id)::Impact: \(.impact) — \(.help) | Element: \(.nodes[0].html // "N/A")"' jest-a11y-report.json
-            else
-              echo "No violations found or violations key missing."
-            fi
-
-
-      # Create or update PR comment
-      - name: Post PR Violation Summary
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          recreate: true
-          header: "♿ WCAG Accessibility Scan Results"
-          message: |
-            ### 🔍 Accessibility Violations Detected
-            
-            **Jest Violations:** ${{ env.jest_failed == '1' && '❌ Found issues' || '✅ Passed' }}  
-            **Playwright Violations:** ${{ env.playwright_failed == '1' && '❌ Found issues' || '✅ Passed' }}
-
-            📎 Reports available under **Artifacts → accessibility-reports**
-
-            _(Merging is allowed, but fixing accessibility issues is recommended.)_
-
-      # This prevents blocking merge but marks workflow as warning
-      - name: Soft Fail on Violations
-        if: env.jest_failed == '1' || env.playwright_failed == '1'
-        run: echo "⚠ Accessibility violations detected — marking workflow as warning."
-        continue-on-error: true
