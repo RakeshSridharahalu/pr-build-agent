@@ -72,14 +72,18 @@ jobs:
           if [ -f "playwright-accessibility-report.json" ]; then
             echo "📌 Normalizing Playwright JSON..."
             jq '{
-              violationCount: (.violations | length),
-              violations: [.violations[] | {
-                id, impact, helpUrl, html: (.nodes[0] // "N/A")
-              }]
+              violationCount: ((.violations // []) | length),
+              violations: ((.violations // []) | map({
+                id,
+                impact,
+                helpUrl,
+                html: (.nodes[0] // "N/A")
+              }))
             }' playwright-accessibility-report.json > reports-playwright.json
           else
             echo "{}" > reports-playwright.json
           fi
+
 
 
 
