@@ -3,6 +3,11 @@ name: WCAG PR Build Agent
 on:
   pull_request:
 
+permissions:
+  pull-requests: write
+  contents: read
+  checks: write
+
 jobs:
   accessibility-scan:
     runs-on: ubuntu-latest
