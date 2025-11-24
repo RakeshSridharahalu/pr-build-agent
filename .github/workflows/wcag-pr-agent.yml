@@ -2,7 +2,6 @@ name: WCAG PR Build Agent
 
 on:
   pull_request:
-    branches: ["main"]
 
 jobs:
   accessibility-scan:
@@ -26,7 +25,9 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
-      # Run Jest
+      # -------------------------------
+      # Run Jest Accessibility Tests
+      # -------------------------------
       - name: Run Jest Accessibility Test
         id: jest
         run: |
@@ -36,28 +37,38 @@ jobs:
         if: env.jest_failed == 'true'
         run: |
           jq -r '
-          (.violations // [])[] |
-          "::error title=Jest Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
-          ' jest-a11y-report.json || echo "No Jest violations found"
+            (.violations // [])[] |
+            "::error title=Jest Axe - \(.id)::Impact: \(.impact), Help: \(.help) | Element: \(.nodes[0].html)"
+          ' jest-a11y-report.json
 
-      # Run Playwright
+      # -------------------------------
+      # Run Playwright Accessibility Tests
+      # -------------------------------
       - name: Run Playwright Accessibility Test
         id: playwright
         run: |
-          npm i -g wait-on
-          npm run dev & wait-on http://localhost:5173
+          npx wait-on http://localhost:5173 & npm run dev &
+          sleep 5
           npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
 
       - name: Annotate Playwright Violations
         if: env.playwright_failed == 'true'
         run: |
           jq -r '
-          (.violations // [])[] |
-          "::error title=Playwright Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
-          ' playwright-accessibility-report.json || echo "No PW violations"
+            (.violations // [])[] |
+            "::error title=Playwright Axe - \(.id)::Impact: \(.impact), Help: \(.help) | Element: \(.nodes[0].html)"
+          ' playwright-accessibility-report.json
 
-      # Upload artifacts
-      - name: Upload Reports
+      # -------------------------------
+      # Generate HTML Reports (Fix you needed)
+      # -------------------------------
+      - name: Generate HTML Reports
+        run: npm run generate:report
+
+      # -------------------------------
+      # Upload JSON + HTML artifacts
+      # -------------------------------
+      - name: Upload Accessibility Reports
         uses: actions/upload-artifact@v4
         with:
           name: wcag-accessibility-reports
@@ -66,7 +77,11 @@ jobs:
             playwright-accessibility-report.json
             reports/*.html
 
-      # Fail if violations exist
-      - name: Fail if Violations Found
+      # -------------------------------
+      # BLOCK PR if any violations exist
+      # -------------------------------
+      - name: Fail if any violations exist
         if: env.jest_failed == 'true' || env.playwright_failed == 'true'
-        run: exit 1
+        run: |
+          echo "❌ Accessibility violations found — blocking PR."
+          exit 1
