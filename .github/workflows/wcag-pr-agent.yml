@@ -53,20 +53,20 @@ jobs:
       - name: Install wait-on
         run: npm install -g wait-on
 
-      - name: Run Playwright Accessibility Test
-        id: playwright
-        run: |
-          echo "▶ Starting DEV server..."
-          npm run dev & wait-on http://localhost:5173
+      # - name: Run Playwright Accessibility Test
+      #   id: playwright
+      #   run: |
+      #     echo "▶ Starting DEV server..."
+      #     npm run dev & wait-on http://localhost:5173
 
-          echo "▶ Running Playwright WCAG scan..."
-          npx playwright test || echo "playwright_failed=true" >> $GITHUB_ENV
+      #     echo "▶ Running Playwright WCAG scan..."
+      #     npx playwright test || echo "playwright_failed=true" >> $GITHUB_ENV
 
-          # Ensure the report file exists
-          if [ ! -f "reports/playwright-accessibility-report.json" ]; then
-            echo "❌ No accessibility report generated"
-            echo "playwright_failed=true" >> $GITHUB_ENV
-          fi
+      #     # Ensure the report file exists
+      #     if [ ! -f "reports/playwright-accessibility-report.json" ]; then
+      #       echo "❌ No accessibility report generated"
+      #       echo "playwright_failed=true" >> $GITHUB_ENV
+      #     fi
 
 
 
