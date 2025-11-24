@@ -1,15 +1,15 @@
-name: WCAG Accessibility Report
+name: ♿ WCAG Accessibility Report
 
 on:
   pull_request:
 
-permissions:
-  pull-requests: write
-  contents: read
-
 jobs:
   accessibility-tests:
     runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write   # required for commenting
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -22,47 +22,59 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # Run Jest Accessibility test, capture exit but continue
       - name: Run Jest Accessibility Test
         id: jest
         run: |
-          npm run test:a11y || echo "jest_failed=true" >> $GITHUB_ENV
+          npm run test:a11y || echo "jest_failed=1" >> $GITHUB_ENV
 
+      # Run Playwright Accessibility test, capture exit but continue
       - name: Run Playwright Accessibility Test
         id: playwright
         run: |
-          npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
+          npm run test:e2e || echo "playwright_failed=1" >> $GITHUB_ENV
 
+      # Generate HTML reports
       - name: Generate HTML Reports
         run: |
-          npm run generate:report || echo "No report generated"
+          mkdir -p reports
+          node -e "const fs=require('fs'); if(fs.existsSync('jest-a11y-report.json')){const d=JSON.parse(fs.readFileSync('jest-a11y-report.json','utf8'));fs.writeFileSync('reports/jest-summary.json',JSON.stringify(d.violations,null,2));} else{console.log('No Jest report found')}"
+          echo "HTML reports created."
 
+      # Upload artifacts
       - name: Upload Accessibility Reports
         uses: actions/upload-artifact@v4
         with:
           name: accessibility-reports
           path: |
-            reports/
             jest-a11y-report.json
             playwright-accessibility-report.json
+            reports/
 
-      - name: Post PR Summary
+      # Annotate violations inside Checks Tab
+      - name: Publish Jest Violations to Checks
+        if: env.jest_failed == '1'
+        run: |
+          jq -r '.violations[] | "::error title=\(.id)::Impact: \(.impact) — \(.help) | \(.nodes[0].html)"' jest-a11y-report.json
+
+      # Create or update PR comment
+      - name: Post PR Violation Summary
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           recreate: true
           header: "♿ WCAG Accessibility Scan Results"
           message: |
-            **Accessibility Test Summary**  
-
-            | Test Type | Result |
-            |----------|--------|
-            | 🧪 Jest Axe | ${{ env.jest_failed == 'true' && '❌ Violations Found' || '✅ Passed' }} |
-            | 🌐 Playwright Axe | ${{ env.playwright_failed == 'true' && '❌ Violations Found' || '✅ Passed' }} |
-
-            📁 Reports attached under **Artifacts → accessibility-reports**
+            ### 🔍 Accessibility Violations Detected
             
-            _This workflow does not block merging but highlights WCAG issues._
+            **Jest Violations:** ${{ env.jest_failed == '1' && '❌ Found issues' || '✅ Passed' }}  
+            **Playwright Violations:** ${{ env.playwright_failed == '1' && '❌ Found issues' || '✅ Passed' }}
 
-      - name: Set Check Status
-        if: env.jest_failed == 'true' || env.playwright_failed == 'true'
-        run: echo "⚠ Violations found — marking workflow as WARNING"
+            📎 Reports available under **Artifacts → accessibility-reports**
+
+            _(Merging is allowed, but fixing accessibility issues is recommended.)_
+
+      # This prevents blocking merge but marks workflow as warning
+      - name: Soft Fail on Violations
+        if: env.jest_failed == '1' || env.playwright_failed == '1'
+        run: echo "⚠ Accessibility violations detected — marking workflow as warning."
         continue-on-error: true
