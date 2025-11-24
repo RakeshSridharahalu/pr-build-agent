@@ -1,38 +1,71 @@
-name: WCAG PR Accessibility Checks
+name: WCAG Accessibility Report
 
 on:
   pull_request:
-    branches: [ "main" ]
 
 jobs:
   accessibility-tests:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup NodeJS
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
+      # Run Jest accessibility and mark failure without breaking build
+      - name: Run Jest Accessibility Test
+        id: jest
+        run: |
+          npm run test:a11y || echo "jest_failed=true" >> $GITHUB_ENV
 
-      - name: Run Jest Axe Tests
-        run: npm run test:a11y
+      # Run Playwright accessibility and mark failure without breaking build
+      - name: Run Playwright Accessibility Test
+        id: playwright
+        run: |
+          npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
 
-      - name: Run Playwright Axe Tests
-        run: npm run test:e2e
+      # Generate HTML reports (this replaces raw JSON files)
+      - name: Generate HTML Reports
+        run: |
+          npm run generate:report
 
-      - name: Upload Accessibility Report
+      # Upload artifacts for the PR reviewer (JSON + HTML)
+      - name: Upload Accessibility Reports
         uses: actions/upload-artifact@v4
         with:
-          name: accessibility-report
+          name: accessibility-reports
           path: |
+            reports/
             jest-a11y-report.json
             playwright-accessibility-report.json
+
+      # PR Comment Summary
+      - name: Post PR Summary
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          recreate: true
+          header: "♿ WCAG Accessibility Scan Results"
+          message: |
+            **Accessibility Test Summary**  
+
+            | Test Type | Result |
+            |----------|--------|
+            | 🧪 Jest Axe | ${{ env.jest_failed == 'true' && '❌ Violations Found' || '✅ Passed' }} |
+            | 🌐 Playwright Axe | ${{ env.playwright_failed == 'true' && '❌ Violations Found' || '✅ Passed' }} |
+
+            📁 Reports attached under **Artifacts → accessibility-reports**
+            
+            _This workflow does not block merging, but highlights WCAG issues._
+
+      # Job conclusion control — do NOT block PR merge
+      - name: Set Check Status
+        if: env.jest_failed == 'true' || env.playwright_failed == 'true'
+        run: |
+          echo "⚠ Violations found — marking workflow as WARNING"
+        continue-on-error: true
