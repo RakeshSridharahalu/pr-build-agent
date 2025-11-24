@@ -1,12 +1,8 @@
-/** @type {import('@playwright/test').PlaywrightTestConfig} */
-const config = {
-  testMatch: ["**/*.spec.js"], // Only run Playwright spec tests
-  reporter: [
-    ['json', { outputFile: 'playwright-accessibility-report.json' }]
-  ],
-  use: {
-    headless: true,
-  },
-};
+import { defineConfig } from '@playwright/test';
 
-export default config;
+export default defineConfig({
+  reporter: [
+    ['json', { outputFile: 'playwright-accessibility-report.json' }],
+    ['list'], // optional: keeps console logs
+  ],
+});
