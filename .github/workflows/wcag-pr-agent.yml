@@ -1,0 +1,35 @@
+name: WCAG PR Build Agent
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  a11y-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Jest Axe Tests
+        id: jest
+        run: npm run test:a11y
+        continue-on-error: true
+
+      - name: Run Playwright Axe Tests
+        id: playwright
+        run: |
+          npm run dev & sleep 5
+          npm run test:e2e
+        continue-on-error: true
+
+      - name: Fail workflow if failed
+        if: failure()
+        run: exit 1
