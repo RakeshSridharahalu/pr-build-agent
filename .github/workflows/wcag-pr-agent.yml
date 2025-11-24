@@ -38,8 +38,27 @@ jobs:
       - name: Generate HTML Reports
         run: |
           mkdir -p reports
-          node -e "const fs=require('fs'); if(fs.existsSync('jest-a11y-report.json')){const d=JSON.parse(fs.readFileSync('jest-a11y-report.json','utf8'));fs.writeFileSync('reports/jest-summary.json',JSON.stringify(d.violations,null,2));} else{console.log('No Jest report found')}"
-          echo "HTML reports created."
+          node << 'EOF'
+          const fs = require('fs');
+
+          if (fs.existsSync('jest-a11y-report.json')) {
+            const data = JSON.parse(fs.readFileSync('jest-a11y-report.json', 'utf8'));
+            const violations = data.violations || [];
+            fs.writeFileSync('reports/jest-summary.json', JSON.stringify(violations, null, 2));
+            console.log(`📁 Jest Summary Created (${violations.length} issues)`);
+          } else {
+            console.log("⚠ Jest report not found — skipping summary generation.");
+          }
+
+          if (fs.existsSync('playwright-accessibility-report.json')) {
+            const pData = JSON.parse(fs.readFileSync('playwright-accessibility-report.json', 'utf8'));
+            fs.writeFileSync('reports/playwright-summary.json', JSON.stringify(pData, null, 2));
+            console.log("📁 Playwright Summary Created");
+          } else {
+            console.log("⚠ Playwright report not found — skipping summary generation.");
+          }
+          EOF
+
 
       # Upload artifacts
       - name: Upload Accessibility Reports
