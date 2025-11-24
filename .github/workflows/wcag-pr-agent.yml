@@ -77,27 +77,28 @@ jobs:
 
           if [ -f jest-a11y-report.json ]; then
             jq '{
-              violationCount: (.violations | length),
-              violations: (.violations[] | {
+              violationCount: (.violations // [] | length),
+              violations: (.violations // [] | map({
                 id,
                 impact,
                 help,
-                html: .nodes[0].html
-              }) | [.]
+                html: (.nodes[0].html // "N/A")
+              }))
             }' jest-a11y-report.json > reports/clean/jest-accessibility-clean.json
           fi
 
           if [ -f playwright-accessibility-report.json ]; then
             jq '{
-              violationCount: (.violations | length),
-              violations: (.violations[] | {
+              violationCount: (.violations // [] | length),
+              violations: (.violations // [] | map({
                 id,
                 impact,
                 help,
-                html: .nodes[0].html
-              }) | [.]
+                html: (.nodes[0].html // "N/A")
+              }))
             }' playwright-accessibility-report.json > reports/clean/playwright-accessibility-clean.json
           fi
+
 
       # -------------------------------
       # Upload Clean JSON Reports
