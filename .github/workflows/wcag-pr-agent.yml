@@ -38,10 +38,15 @@ jobs:
         if: env.jest_failed == 'true'
         run: |
           if [ -f jest-a11y-report.json ]; then
-            jq -r '.violations[] | "::error title=Jest Axe - \(.id)::Impact: \(.impact), Help: \(.help) | Element: \(.nodes[0].html // "N/A")"' jest-a11y-report.json
+            echo "🔍 Parsing Jest Accessibility Violations..."
+            jq -r '
+              (.violations // [])[] |
+              "::error title=Jest Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
+            ' jest-a11y-report.json
           else
-            echo "::warning ::No Jest report found"
+            echo "::warning ::No Jest report found."
           fi
+
 
       # -------------------------------
       # Run Playwright Accessibility Tests
@@ -56,9 +61,13 @@ jobs:
         if: env.playwright_failed == 'true'
         run: |
           if [ -f playwright-accessibility-report.json ]; then
-            jq -r '.violations[] | "::error title=Playwright Axe - \(.id)::Impact: \(.impact), Help: \(.help) | Element: \(.nodes[0].html // "N/A")"' playwright-accessibility-report.json
+            echo "🔍 Parsing Playwright Accessibility Violations..."
+            jq -r '
+              (.violations // [])[] |
+              "::error title=Playwright Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
+            ' playwright-accessibility-report.json
           else
-            echo "::warning ::No Playwright report found"
+            echo "::warning ::No Playwright report found."
           fi
 
       # -------------------------------
