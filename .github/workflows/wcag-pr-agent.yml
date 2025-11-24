@@ -71,10 +71,15 @@ jobs:
             reports/
 
       # Annotate violations inside Checks Tab
-      - name: Publish Jest Violations to Checks
-        if: env.jest_failed == '1'
-        run: |
-          jq -r '.violations[] | "::error title=\(.id)::Impact: \(.impact) — \(.help) | \(.nodes[0].html)"' jest-a11y-report.json
+      - - name: Publish Jest Violations to Checks
+          if: env.jest_failed == '1'
+          run: |
+            if jq -e '.violations | length > 0' jest-a11y-report.json > /dev/null; then
+              jq -r '.violations[] | "::error title=\(.id)::Impact: \(.impact) — \(.help) | Element: \(.nodes[0].html // "N/A")"' jest-a11y-report.json
+            else
+              echo "No violations found or violations key missing."
+            fi
+
 
       # Create or update PR comment
       - name: Post PR Violation Summary
