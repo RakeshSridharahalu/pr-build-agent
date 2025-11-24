@@ -1,4 +1,4 @@
-name: WCAG PR Accessibility Checks
+name: WCAG Accessibility Report
 
 on:
   pull_request:
@@ -12,27 +12,48 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup NodeJS
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Run Jest Axe Tests
+      - name: Run Jest Accessibility Test
+        continue-on-error: true
         run: npm run test:a11y
 
-      - name: Run Playwright Axe Tests
+      - name: Run Playwright Accessibility Test
+        continue-on-error: true
         run: npm run test:e2e
 
-      - name: Upload Accessibility Report
+      - name: Upload Accessibility Reports
         uses: actions/upload-artifact@v4
         with:
-          name: accessibility-report
+          name: accessibility-reports
           path: |
             jest-a11y-report.json
-            playwright-accessibility-report.json
+            playwright-violations.json
+
+      - name: Add Test Summary to GitHub Actions UI
+        run: |
+          echo "### ♿ Accessibility Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f "jest-a11y-report.json" ]; then
+            echo "#### Jest Axe Violations (Unit)" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+            cat jest-a11y-report.json >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f "playwright-violations.json" ]; then
+            echo "#### Playwright Axe Violations (Browser)" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`json" >> $GITHUB_STEP_SUMMARY
+            cat playwright-violations.json >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
