@@ -60,5 +60,12 @@ test("Accessibility Scan", async () => {
     },
   });
 
+  // Save JSON in expected structure
+  fs.writeFileSync(
+    "jest-a11y-report.json",
+    JSON.stringify({ violations: results.violations }, null, 2)
+  );
+
   expect(results.violations.length).toBe(0);
+
 });

@@ -2,7 +2,6 @@ name: WCAG PR Build Agent
 
 on:
   pull_request:
-    branches: ["main"]
 
 jobs:
   accessibility-scan:
@@ -21,34 +20,34 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: Install Dependencies
         run: npm ci
 
-      # -------------------------------
-      # Run Jest Accessibility Tests
-      # -------------------------------
+      ########################################
+      # Run Jest Axe and Save Results
+      ########################################
       - name: Run Jest Accessibility Test
         id: jest
         run: |
           npm run test:a11y || echo "jest_failed=true" >> $GITHUB_ENV
 
-      - name: Annotate Jest Violations
+      - name: Normalize Jest JSON Structure
         if: env.jest_failed == 'true'
         run: |
-          echo "🔍 Annotating Jest accessibility violations..."
-          if [ -f jest-a11y-report.json ]; then
-            jq -r '
-              (.violations // [])[] |
-              "::error title=Jest Axe - \(.id)::Impact: \(.impact // "N/A"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
-            ' jest-a11y-report.json
-          fi
+          echo "📌 Normalizing Jest JSON..."
+          jq '{
+            violationCount: (.violations | length),
+            violations: [.violations[] | {
+              id, impact, help, html: (.nodes[0].html // "N/A")
+            }]
+          }' jest-a11y-report.json > reports-jest.json
 
-      # -------------------------------
-      # Run Playwright Accessibility Tests
-      # -------------------------------
-      - name: Install wait-on utility
+      ########################################
+      # Run Playwright Axe and Format Output
+      ########################################
+      - name: Install wait-on
         run: npm install -g wait-on
 
       - name: Run Playwright Accessibility Test
@@ -57,61 +56,35 @@ jobs:
           npm run dev & wait-on http://localhost:5173
           npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
 
-      - name: Annotate Playwright Violations
+      - name: Normalize Playwright JSON Structure
         if: env.playwright_failed == 'true'
         run: |
-          echo "🔍 Annotating Playwright accessibility violations..."
-          if [ -f playwright-accessibility-report.json ]; then
-            jq -r '
-              (.violations // [])[] |
-              "::error title=Playwright Axe - \(.id)::Impact: \(.impact // "N/A"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
-            ' playwright-accessibility-report.json
-          fi
+          echo "📌 Normalizing Playwright JSON..."
+          jq '
+            if .violations then
+              {
+                violationCount: (.violations | length),
+                violations: [.violations[] | {
+                  id, impact, help, html: (.nodes[0].html // "N/A")
+                }]
+              }
+            else empty end
+          ' playwright-accessibility-report.json > reports-playwright.json
 
-      # -------------------------------
-      # Format Reports into Clean JSON
-      # -------------------------------
-      - name: Format JSON Reports for Readability
-        run: |
-          mkdir -p reports/clean
-
-          if [ -f jest-a11y-report.json ]; then
-            jq '{
-              violationCount: (.violations // [] | length),
-              violations: (.violations // [] | map({
-                id,
-                impact,
-                help,
-                html: (.nodes[0].html // "N/A")
-              }))
-            }' jest-a11y-report.json > reports/clean/jest-accessibility-clean.json
-          fi
-
-          if [ -f playwright-accessibility-report.json ]; then
-            jq '{
-              violationCount: (.violations // [] | length),
-              violations: (.violations // [] | map({
-                id,
-                impact,
-                help,
-                html: (.nodes[0].html // "N/A")
-              }))
-            }' playwright-accessibility-report.json > reports/clean/playwright-accessibility-clean.json
-          fi
-
-
-      # -------------------------------
-      # Upload Clean JSON Reports
-      # -------------------------------
+      ########################################
+      # Upload Final Clean Reports
+      ########################################
       - name: Upload Accessibility Reports
         uses: actions/upload-artifact@v4
         with:
           name: wcag-accessibility-reports
-          path: reports/clean/
+          path: |
+            reports-jest.json
+            reports-playwright.json
 
-      # -------------------------------
-      # BLOCK PR if violations exist
-      # -------------------------------
+      ########################################
+      # Block PR if violations exist
+      ########################################
       - name: Fail if any violations exist
         if: env.jest_failed == 'true' || env.playwright_failed == 'true'
         run: |
