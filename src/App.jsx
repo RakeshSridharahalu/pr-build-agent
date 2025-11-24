@@ -2,3 +2,4 @@
 import BadAccessibility from "./components/BadAccessibility";
 
 export default () => <BadAccessibility />;
+// export default () => <GoodAccessibility />;
