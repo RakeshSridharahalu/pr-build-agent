@@ -54,7 +54,17 @@ jobs:
         id: playwright
         run: |
           npm run dev & wait-on http://localhost:5173
-          npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
+
+          # Force playwright reporter output
+          npx playwright test --reporter=json | tee raw-playwright.json
+
+          mv raw-playwright.json playwright-accessibility-report.json || true
+
+          # Mark failure condition
+          if [ $? -ne 0 ]; then
+            echo "playwright_failed=true" >> $GITHUB_ENV
+          fi
+
 
       - name: Normalize Playwright JSON Structure
         if: env.playwright_failed == 'true'
