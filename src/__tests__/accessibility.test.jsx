@@ -11,28 +11,54 @@
 //   expect(results).toHaveNoViolations();
 // });
 
+// import { render } from "@testing-library/react";
+// import App from "../App";
+// import { axe } from "jest-axe";
+// import fs from "fs";
+
+// test("Accessibility Scan", async () => {
+//   const { container } = render(<App />);
+//   const results = await axe(container);
+
+//   fs.writeFileSync("jest-a11y-report.json", JSON.stringify(results, null, 2));
+
+//   if (results.violations.length > 0) {
+//     console.log("\n❌ Accessibility Violations Found:\n");
+//     results.violations.forEach(v => {
+//       console.log(`🔍 Rule: ${v.id}`);
+//       console.log(`📌 Impact: ${v.impact}`);
+//       console.log(`💡 Help: ${v.help}`);
+//       console.log(`🔗 Docs: ${v.helpUrl}`);
+//       console.log(`HTML Nodes: ${v.nodes.map(n => n.html).join("\n")}`);
+//       console.log("\n---\n");
+//     });
+//   }
+
+//   expect(results.violations.length).toBe(0);
+// });
+
 import { render } from "@testing-library/react";
 import App from "../App";
 import { axe } from "jest-axe";
 import fs from "fs";
+import { createHtmlReport } from "axe-html-reporter";
 
 test("Accessibility Scan", async () => {
   const { container } = render(<App />);
   const results = await axe(container);
 
+  // Save JSON
   fs.writeFileSync("jest-a11y-report.json", JSON.stringify(results, null, 2));
 
-  if (results.violations.length > 0) {
-    console.log("\n❌ Accessibility Violations Found:\n");
-    results.violations.forEach(v => {
-      console.log(`🔍 Rule: ${v.id}`);
-      console.log(`📌 Impact: ${v.impact}`);
-      console.log(`💡 Help: ${v.help}`);
-      console.log(`🔗 Docs: ${v.helpUrl}`);
-      console.log(`HTML Nodes: ${v.nodes.map(n => n.html).join("\n")}`);
-      console.log("\n---\n");
-    });
-  }
+  // Generate Pretty HTML
+  createHtmlReport({
+    results,
+    options: {
+      outputDir: "reports",
+      reportFileName: "jest-accessibility-report",
+      doNotCreateReportFile: false,
+    },
+  });
 
   expect(results.violations.length).toBe(0);
 });

@@ -73,13 +73,15 @@ jobs:
       # -------------------------------
       # Upload JSON artifacts
       # -------------------------------
-      - name: Upload Accessibility Reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: wcag-accessibility-reports
-          path: |
-            jest-a11y-report.json
-            playwright-accessibility-report.json
+      - - name: Upload Accessibility Reports
+          uses: actions/upload-artifact@v4
+          with:
+            name: wcag-accessibility-reports
+            path: |
+              jest-accessibility-report.json
+              playwright-accessibility-report.json
+              reports/*.html
+
 
       # -------------------------------
       # BLOCK PR if any violations exist
