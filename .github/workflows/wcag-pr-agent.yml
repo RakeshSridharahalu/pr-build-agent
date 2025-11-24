@@ -60,16 +60,17 @@ jobs:
           npx playwright test || echo "playwright_failed=true" >> $GITHUB_ENV
 
           # Ensure the report file exists
-          if [ ! -f "playwright-accessibility-report.json" ]; then
+          if [ ! -f "reports/playwright-accessibility-report.json" ]; then
             echo "❌ No accessibility report generated"
             echo "playwright_failed=true" >> $GITHUB_ENV
           fi
 
 
+
       - name: Normalize Playwright JSON Structure
         if: always()
         run: |
-          if [ -f "playwright-accessibility-report.json" ]; then
+          if [ -f "reports/playwright-accessibility-report.json" ]; then
             echo "📌 Normalizing Playwright JSON..."
             jq '{
               violationCount: ((.violations // []) | length),
@@ -79,10 +80,11 @@ jobs:
                 helpUrl,
                 html: (.nodes[0] // "N/A")
               }))
-            }' playwright-accessibility-report.json > reports-playwright.json
+            }' reports/playwright-accessibility-report.json > reports-playwright.json
           else
             echo "{}" > reports-playwright.json
           fi
+
 
 
 
