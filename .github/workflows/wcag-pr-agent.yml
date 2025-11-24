@@ -47,11 +47,12 @@ jobs:
       # -------------------------------
       # Run Playwright Accessibility Tests
       # -------------------------------
-      - name: Run Playwright Accessibility Test
-        id: playwright
-        run: |
-          npm run dev & wait-on http://localhost:5173
-          npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
+      - - name: Run Playwright Accessibility Test
+          id: playwright
+          run: |
+            npm run dev & npx wait-on http://localhost:5173
+            npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
+
 
       - name: Annotate Playwright Violations
         if: env.playwright_failed == 'true'
