@@ -1,35 +1,38 @@
-name: WCAG PR Build Agent
+name: WCAG PR Accessibility Checks
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
 
 jobs:
-  a11y-check:
+  accessibility-tests:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - run: npm ci
+      - name: Setup NodeJS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
       - name: Run Jest Axe Tests
-        id: jest
         run: npm run test:a11y
-        continue-on-error: true
 
       - name: Run Playwright Axe Tests
-        id: playwright
-        run: |
-          npm run dev & sleep 5
-          npm run test:e2e
-        continue-on-error: true
+        run: npm run test:e2e
 
-      - name: Fail workflow if failed
-        if: failure()
-        run: exit 1
+      - name: Upload Accessibility Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-report
+          path: |
+            jest-a11y-report.json
+            playwright-accessibility-report.json
