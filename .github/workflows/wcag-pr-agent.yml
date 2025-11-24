@@ -2,7 +2,6 @@ name: WCAG PR Build Agent
 
 on:
   pull_request:
-    branches: ["main"]
 
 jobs:
   accessibility-scan:
@@ -47,7 +46,6 @@ jobs:
             echo "::warning ::No Jest report found."
           fi
 
-
       # -------------------------------
       # Run Playwright Accessibility Tests
       # -------------------------------
@@ -73,15 +71,14 @@ jobs:
       # -------------------------------
       # Upload JSON artifacts
       # -------------------------------
-      - - name: Upload Accessibility Reports
-          uses: actions/upload-artifact@v4
-          with:
-            name: wcag-accessibility-reports
-            path: |
-              jest-accessibility-report.json
-              playwright-accessibility-report.json
-              reports/*.html
-
+      - name: Upload Accessibility Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: wcag-accessibility-reports
+          path: |
+            jest-a11y-report.json
+            playwright-accessibility-report.json
+            reports/*.html
 
       # -------------------------------
       # BLOCK PR if any violations exist
