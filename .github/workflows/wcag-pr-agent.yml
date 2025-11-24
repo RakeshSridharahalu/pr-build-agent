@@ -2,11 +2,7 @@ name: WCAG PR Build Agent
 
 on:
   pull_request:
-
-permissions:
-  pull-requests: write
-  contents: read
-  checks: write
+    branches: ["main"]
 
 jobs:
   accessibility-scan:
@@ -28,13 +24,9 @@ jobs:
           cache: npm
 
       - name: Install Dependencies
-        run: |
-          npm ci
-          npm install wait-on --save-dev
+        run: npm ci
 
-      # -------------------------------
-      # Run Jest Accessibility Tests
-      # -------------------------------
+      # Run Jest
       - name: Run Jest Accessibility Test
         id: jest
         run: |
@@ -43,41 +35,29 @@ jobs:
       - name: Annotate Jest Violations
         if: env.jest_failed == 'true'
         run: |
-          echo "🔍 Parsing Jest Accessibility Violations..."
           jq -r '
-            (.violations // [])[] |
-            "::error title=Jest Axe: \(.id)::Impact: \(.impact // "unknown") — \(.help // "N/A") | Affected: \(.nodes[0].html // "N/A")"
-          ' jest-a11y-report.json
+          (.violations // [])[] |
+          "::error title=Jest Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
+          ' jest-a11y-report.json || echo "No Jest violations found"
 
-      # -------------------------------
-      # Run Playwright Accessibility Tests
-      # -------------------------------
-      - - name: Run Playwright Accessibility Test
-          id: playwright
-          run: |
-            npm run dev & npx wait-on http://localhost:5173
-            npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
-
+      # Run Playwright
+      - name: Run Playwright Accessibility Test
+        id: playwright
+        run: |
+          npm i -g wait-on
+          npm run dev & wait-on http://localhost:5173
+          npm run test:e2e || echo "playwright_failed=true" >> $GITHUB_ENV
 
       - name: Annotate Playwright Violations
         if: env.playwright_failed == 'true'
         run: |
-          echo "🔍 Parsing Playwright Accessibility Violations..."
           jq -r '
-            (.violations // [])[] |
-            "::error title=Playwright Axe: \(.id)::Impact: \(.impact // "unknown") — \(.help // "N/A") | Affected: \(.nodes[0].html // "N/A")"
-          ' playwright-accessibility-report.json
+          (.violations // [])[] |
+          "::error title=Playwright Axe - \(.id)::Impact: \(.impact // "unknown"), Help: \(.help // "N/A") | Element: \(.nodes[0].html // "N/A")"
+          ' playwright-accessibility-report.json || echo "No PW violations"
 
-      # -------------------------------
-      # Generate HTML Reports
-      # -------------------------------
-      - name: Generate HTML Reports
-        run: npm run generate:report
-
-      # -------------------------------
-      # Upload JSON + HTML artifacts
-      # -------------------------------
-      - name: Upload Accessibility Reports
+      # Upload artifacts
+      - name: Upload Reports
         uses: actions/upload-artifact@v4
         with:
           name: wcag-accessibility-reports
@@ -86,11 +66,7 @@ jobs:
             playwright-accessibility-report.json
             reports/*.html
 
-      # -------------------------------
-      # BLOCK PR if any violations exist
-      # -------------------------------
-      - name: Fail if any violations exist
+      # Fail if violations exist
+      - name: Fail if Violations Found
         if: env.jest_failed == 'true' || env.playwright_failed == 'true'
-        run: |
-          echo "❌ Accessibility violations found — blocking PR."
-          exit 1
+        run: exit 1
