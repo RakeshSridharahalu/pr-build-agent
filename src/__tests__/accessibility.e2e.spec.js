@@ -114,20 +114,32 @@
 
 // });
 
-import { test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { injectAxe } from "axe-playwright";
-import * as fs from "fs";
+import fs from "fs";
+import path from "path";
 
 test("Accessibility Scan", async ({ page }) => {
+
+  // Load the application
   await page.goto("http://localhost:5173");
 
+  // Ensure app is fully rendered (important for React/Vite)
+  await page.waitForTimeout(1000);
+
+  // Inject axe-core into the browser
   await injectAxe(page);
 
-  // Run scan
-  const results = await page.evaluate(async () => await window.axe.run());
+  // Run the accessibility analysis inside browser context
+  const results = await page.evaluate(async () => {
+    return await window.axe.run();
+  });
 
-  // Extract only violations
+  console.log(`🔍 Raw violations detected: ${results.violations.length}`);
+
+  // Filter only the essential details
   const filtered = {
+    violationCount: results.violations.length,
     violations: results.violations.map(v => ({
       id: v.id,
       impact: v.impact,
@@ -137,10 +149,20 @@ test("Accessibility Scan", async ({ page }) => {
     }))
   };
 
-  fs.writeFileSync(
-    "playwright-accessibility-report.json",
-    JSON.stringify(filtered, null, 2)
-  );
+  // Ensure reports folder exists
+  const outputFolder = path.join(process.cwd(), "reports");
+  if (!fs.existsSync(outputFolder)) {
+    fs.mkdirSync(outputFolder, { recursive: true });
+  }
 
-  console.log(`🔍 Accessibility issues found: ${filtered.violations.length}`);
+  // Final file path
+  const outputPath = path.join(outputFolder, "playwright-accessibility-report.json");
+
+  // Write formatted report JSON
+  fs.writeFileSync(outputPath, JSON.stringify(filtered, null, 2), "utf-8");
+
+  console.log(`📄 WCAG Playwright report saved at: ${outputPath}`);
+
+  // Optional: fail test if violations exist
+  expect(filtered.violationCount, `⚠ Accessibility violations found: ${filtered.violationCount}`).toBe(0);
 });

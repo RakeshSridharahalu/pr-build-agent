@@ -96,7 +96,8 @@ jobs:
           name: wcag-accessibility-reports
           path: |
             reports-jest.json
-            reports-playwright.json
+            reports/playwright-accessibility-report.json
+
 
       ########################################
       # Block PR if violations exist
